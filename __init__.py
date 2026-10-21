@@ -1,0 +1,1 @@
+"""Pacote mediap - Reprodutor de mídia via linha de comando."""

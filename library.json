@@ -1,0 +1,242 @@
+[
+    {
+        "id": 1,
+        "title": "Idle Hands",
+        "artist": "Kerry King",
+        "duration": 225,
+        "rating": 1,
+        "data_adicao": "2026-09-18"
+    },
+    {
+        "id": 2,
+        "title": "Bleed",
+        "artist": "Meshuggah",
+        "duration": 442,
+        "rating": 1,
+        "data_adicao": "2026-09-18"
+    },
+    {
+        "id": 3,
+        "title": "Ghost of Perdition",
+        "artist": "Opeth",
+        "duration": 629,
+        "rating": 5,
+        "data_adicao": "2026-09-17"
+    },
+    {
+        "id": 4,
+        "title": "The Drapery Falls",
+        "artist": "Opeth",
+        "duration": 654,
+        "rating": 5,
+        "data_adicao": "2026-09-17"
+    },
+    {
+        "id": 5,
+        "title": "I Want Out",
+        "artist": "Helloween",
+        "duration": 279,
+        "rating": 2,
+        "data_adicao": "2026-09-16"
+    },
+    {
+        "id": 6,
+        "title": "The Bee",
+        "artist": "Amorphis",
+        "duration": 330,
+        "rating": 2,
+        "data_adicao": "2026-09-16"
+    },
+    {
+        "id": 7,
+        "title": "Carry On",
+        "artist": "Angra",
+        "duration": 303,
+        "rating": 1,
+        "data_adicao": "2026-09-15"
+    },
+    {
+        "id": 8,
+        "title": "Homage for Satan",
+        "artist": "Deicide",
+        "duration": 239,
+        "rating": 5,
+        "data_adicao": "2026-09-15"
+    },
+    {
+        "id": 9,
+        "title": "Hard Rock Hallelujah",
+        "artist": "Lordi",
+        "duration": 247,
+        "rating": 1,
+        "data_adicao": "2026-09-14"
+    },
+    {
+        "id": 10,
+        "title": "Animal House",
+        "artist": "U.D.O.",
+        "duration": 259,
+        "rating": 5,
+        "data_adicao": "2026-09-14"
+    },
+    {
+        "id": 11,
+        "title": "Youth Gone Wild (Live)",
+        "artist": "Sebastian Bach",
+        "duration": 260,
+        "rating": 4,
+        "data_adicao": "2026-09-13"
+    },
+    {
+        "id": 12,
+        "title": "Metal Is Forever",
+        "artist": "Primal Fear",
+        "duration": 286,
+        "rating": 1,
+        "data_adicao": "2026-09-13"
+    },
+    {
+        "id": 13,
+        "title": "FullMoon",
+        "artist": "Sonata Arctica",
+        "duration": 306,
+        "rating": 1,
+        "data_adicao": "2026-09-12"
+    },
+    {
+        "id": 14,
+        "title": "Shut Your Mouth",
+        "artist": "Pain",
+        "duration": 193,
+        "rating": 1,
+        "data_adicao": "2026-09-12"
+    },
+    {
+        "id": 15,
+        "title": "Elegy",
+        "artist": "Leaves' Eyes",
+        "duration": 307,
+        "rating": 2,
+        "data_adicao": "2026-09-11"
+    },
+    {
+        "id": 16,
+        "title": "Der Morgen Danach",
+        "artist": "Lacrimosa",
+        "duration": 257,
+        "rating": 2,
+        "data_adicao": "2026-09-11"
+    },
+    {
+        "id": 17,
+        "title": "Demiurge",
+        "artist": "Meshuggah",
+        "duration": 305,
+        "rating": 5,
+        "data_adicao": "2026-09-10"
+    },
+    {
+        "id": 18,
+        "title": "Residue",
+        "artist": "Kerry King",
+        "duration": 240,
+        "rating": 5,
+        "data_adicao": "2026-09-10"
+    },
+    {
+        "id": 19,
+        "title": "Blackwater Park",
+        "artist": "Opeth",
+        "duration": 728,
+        "rating": 5,
+        "data_adicao": "2026-09-09"
+    },
+    {
+        "id": 20,
+        "title": "Eagle Fly Free",
+        "artist": "Helloween",
+        "duration": 308,
+        "rating": 5,
+        "data_adicao": "2026-09-09"
+    },
+    {
+        "id": 21,
+        "title": "Silver Bride",
+        "artist": "Amorphis",
+        "duration": 253,
+        "rating": 2,
+        "data_adicao": "2026-09-08"
+    },
+    {
+        "id": 22,
+        "title": "Nova Era",
+        "artist": "Angra",
+        "duration": 292,
+        "rating": 5,
+        "data_adicao": "2026-09-08"
+    },
+    {
+        "id": 23,
+        "title": "Once Upon the Cross",
+        "artist": "Deicide",
+        "duration": 215,
+        "rating": 4,
+        "data_adicao": "2026-09-07"
+    },
+    {
+        "id": 24,
+        "title": "Blood Red Sandman",
+        "artist": "Lordi",
+        "duration": 243,
+        "rating": 2,
+        "data_adicao": "2026-09-07"
+    },
+    {
+        "id": 25,
+        "title": "Man and Machine",
+        "artist": "U.D.O.",
+        "duration": 340,
+        "rating": 4,
+        "data_adicao": "2026-09-06"
+    },
+    {
+        "id": 26,
+        "title": "The End is Near",
+        "artist": "Primal Fear",
+        "duration": 267,
+        "rating": 5,
+        "data_adicao": "2026-09-06"
+    },
+    {
+        "id": 27,
+        "title": "Tallulah",
+        "artist": "Sonata Arctica",
+        "duration": 320,
+        "rating": 3,
+        "data_adicao": "2026-09-05"
+    },
+    {
+        "id": 28,
+        "title": "Same Old Song",
+        "artist": "Pain",
+        "duration": 238,
+        "rating": 1,
+        "data_adicao": "2026-09-05"
+    },
+    {
+        "id": 29,
+        "title": "Anytime Anywhere",
+        "artist": "Gotthard",
+        "duration": 256,
+        "rating": 2,
+        "data_adicao": "2026-09-04"
+    },
+    {
+        "id": 30,
+        "title": "Windowpane",
+        "artist": "Opeth",
+        "duration": 465,
+        "rating": 5,
+        "data_adicao": "2026-09-04"
+    }
+]
