@@ -17,31 +17,30 @@ def print_help() -> None:
 Comandos Disponíveis:
 ---------------------
 [Biblioteca]
-  load <arquivo>         - Carrega a biblioteca a partir de um ficheiro JSON
-  list <atributo>        - Lista as músicas (default: id, opcional: ordenar por 'title', 'artist', etc.)
+  library load <arquivo>    - Carrega a biblioteca a partir de um ficheiro JSON
+  library list [atributo]   - Lista as músicas (padrão: id)
 
 [Playlist]
-  playlist new <nome>    - Cria uma nova playlist e define-a como ativa
-  playlist add <id>      - Adiciona a música com o ID indicado à playlist ativa
-  playlist remove <pos>  - Remove a música na posição <pos> da playlist ativa
-  playlist show          - Exibe as faixas da playlist ativa
-  playlist reset         - Reinicia o cursor da playlist ativa para a primeira música
+  playlist new <nome>       - Cria uma nova playlist e define-a como ativa
+  playlist add <id> ...     - Adiciona uma ou mais faixas à playlist ativa
+  playlist remove <pos>     - Remove a faixa na posição indicada
+  playlist show             - Exibe as faixas da playlist ativa
+  playlist reset            - Reinicia o cursor para a primeira música
 
-[Filas Automáticas]
-  upnext add <id>        - Adiciona uma música ao final da fila de prioridade Up Next
-  upnext show            - Exibe a fila Up Next
-  history                - Exibe o histórico das últimas reproduções (máx. 20)
-  smart-shuffle <n>      - Gera uma playlist inteligente com <n> faixas
+[Up Next]
+  enqueue <id> ...          - Adiciona faixas à fila Up Next
+  queue show                - Exibe a fila Up Next
+  upnext <id> ...           - Alias de enqueue
 
 [Reprodução]
-  play                   - Inicia ou retoma a reprodução da música atual
-  next                   - Avança para a próxima música (Up Next tem precedência)
-  prev                   - Retrocede para a música anterior
-  current                - Exibe qual música está a tocar neste exato momento
+  play                      - Mostra a faixa atual da reprodução
+  next                      - Avança para a próxima música (Up Next tem precedência)
+  prev                      - Retrocede para a música anterior
+  current                   - Exibe a música atual em execução
 
 [Sistema]
-  help                   - Exibe este menu de ajuda
-  exit / quit            - Encerra o programa
+  help                      - Exibe este menu de ajuda
+  exit / quit               - Encerra o programa
 """
     print(help_text)
 
@@ -155,9 +154,16 @@ def run_cli() -> None:
                             print(f"   [{idx + 1}] {track}")
                         print()
 
+                elif subcmd == "reset":
+                    player.playlist_reset_cursor()
+                    print("Cursor da playlist reiniciado para o início.")
+
+                else:
+                    print(f"Erro: Subcomando '{subcmd}' de playlist desconhecido.")
+
             # Comandos de Fila Up Next
 
-            elif cmd == "enqueue":
+            elif cmd in ("enqueue", "upnext"):
                 if len(parts) < 2:
                     print("Erro: Especifique o ID da faixa (ex: enqueue 1).")
                     continue
@@ -174,12 +180,17 @@ def run_cli() -> None:
                 if subcmd == "show":
                     tracks = player.up_next_list()
                     print("\n--- Fila Up Next ---")
-                    for idx, track in enumerate(tracks):
-                        if track == player.up_next_current():
-                            print(f" > [{idx + 1}] {track}")
-                        else:
-                            print(f"   [{idx + 1}] {track}")
+                    if not tracks:
+                        print("A fila Up Next está vazia.")
+                    else:
+                        for idx, track in enumerate(tracks):
+                            if track == player.up_next_current():
+                                print(f" > [{idx + 1}] {track}")
+                            else:
+                                print(f"   [{idx + 1}] {track}")
                         print()
+                else:
+                    print(f"Erro: Subcomando '{subcmd}' de queue desconhecido.")
 
             # Comandos de Reprodução
 
@@ -187,15 +198,20 @@ def run_cli() -> None:
                 track = player.play()
                 print(f"Tocando: {track}")
 
-            #     elif subcmd == "reset":
-            #         player.reset_playlist_cursor()
-            #         print("Cursor da playlist reiniciado para o início.")
-            #         current = player.current_track()
-            #         if current:
-            #             print(f"Música atual: {current}")
+            elif cmd == "next":
+                track = player.play_next()
+                print(f"Avançou para: {track}")
 
-            #     else:
-            #         print(f"Erro: Subcomando '{subcmd}' de playlist desconhecido.")
+            elif cmd == "prev":
+                track = player.play_prev()
+                print(f"Retrocedeu para: {track}")
+
+            elif cmd == "current":
+                current = player.player_current()
+                if current is None:
+                    print("Nenhuma música a tocar no momento.")
+                else:
+                    print(f"A tocar agora: {current}")
 
             # # ==========================================
             # # Fila Up Next
@@ -279,45 +295,9 @@ def run_cli() -> None:
                 print(f"Comando desconhecido: '{cmd}'. Digite 'help' para ver os comandos.")
 
         except (PlaylistError, ValueError, KeyError, IndexError, FileNotFoundError) as e:
-            # Captura centralizada de erros de domínio
             print(f"Erro: {e}")
         except Exception as e:
-            # Captura de erros imprevistos
             print(f"Ocorreu um erro inesperado: {e}")
-
-
-# if __name__ == "__main__":
-#     app_player = Player()
-#     run_cli(app_player)
-
-# """
-# Módulo cli.py
-# Implementa a interface de linha de comando (CLI) para o MediaP.
-# """
-
-# from .player import Player, LibraryError
-
-
-# def print_help() -> None:
-#     """Exibe a lista de comandos disponíveis no MediaP."""
-#     help_text = """
-# MediaP - Comandos Disponíveis
-
-# Controle do Player:
-#   play                         - Inicia/exibe a reprodução da faixa atual
-#   next                         - Avança para a próxima faixa
-#   prev                         - Retrocede para a faixa anterior
-
-# Biblioteca (library):
-#   library load <arquivo.json>  - Carrega a biblioteca de faixas
-#   library save <arquivo.json>  - Salva as alterações da biblioteca
-#   library list [atributo]      - Lista faixas (padrão: ordenado por id)
-
-# Playlist (playlist):
-#   playlist new <nome>          - Cria uma nova playlist e a torna ativa
-#   playlist add <track_id>      - Adiciona a faixa correspondente ao ID
-#   playlist remove <pos>        - Remove a faixa na posição pos (índice 0, 1...)
-#   playlist show                - Exibe a playlist e destaca a faixa atual (>)
 #   playlist reset               - Reinicializa o cursor na primeira música
 
 # Gerais:

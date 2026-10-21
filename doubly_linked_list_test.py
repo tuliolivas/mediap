@@ -5,6 +5,7 @@ Módulo de testes unitários para a classe Playlist e suas funcionalidades.
 import unittest
 from typing import Optional
 
+from .player import Player
 from .playlist import Playlist, PlaylistEmptyError, PlaylistLimitError
 
 
@@ -135,6 +136,30 @@ class TestPlaylistEstrutura(unittest.TestCase):
         self.assertEqual(len(self.playlist_vazia), 0)
         with self.assertRaises(PlaylistEmptyError):
             self.playlist_vazia.current()
+
+
+class TestPlayerReproducao(unittest.TestCase):
+    """Testes para o fluxo principal de reprodução do player."""
+
+    def setUp(self):
+        self.player = Player()
+        self.player.library_load("library.json")
+        self.player.playlist_create("Rock")
+        self.player.playlist_add_track([1, 2, 3])
+
+    def test_play_e_next_prev_na_playlist(self):
+        self.assertEqual(self.player.play().id, 1)
+        self.assertEqual(self.player.play_next().id, 2)
+        self.assertEqual(self.player.play_prev().id, 1)
+
+    def test_up_next_tem_precedencia_sobre_playlist(self):
+        self.player.up_next_enqueue([3])
+        self.assertEqual(self.player.play_next().id, 3)
+
+    def test_current_retorna_faixa_ativa(self):
+        self.assertEqual(self.player.player_current().id, 1)
+        self.player.play_next()
+        self.assertEqual(self.player.player_current().id, 2)
 
 if __name__ == '__main__':
     unittest.main()

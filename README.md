@@ -1,56 +1,59 @@
-**Clientes**
-(<u>cod_cliente</u>, email, rua, numero, bairro, cidade, cep)
+# MediaP
 
-**Telefones_Cliente**
-(<u>cod_cliente</u>, <u>telefone</u>)
-cod_cliente não nulo referencia Clientes.cod_cliente
+Aplicação CLI de reprodutor musical em Python.
 
-**Pessoas_Fisicas**
-(<u>cod_cliente</u>, nome_completo, cpf)
-cod_cliente não nulo referencia Clientes.cod_cliente
-*(Nota: cpf é chave alternativa / UNIQUE)*
+## Visão geral
 
-**Pessoas_Juridicas**
-(<u>cod_cliente</u>, razao_social, cnpj)
-cod_cliente não nulo referencia Clientes.cod_cliente
-*(Nota: cnpj é chave alternativa / UNIQUE)*
+O projeto gestiona:
+- biblioteca de faixas em JSON
+- criação e navegação de playlists
+- fila Up Next
+- reprodução atual e avanço/retrocesso
+- lista encadeada duplamente ligada como estrutura principal
 
-**Pedidos**
-(<u>cod_pedido</u>, data_solicitacao, valor_total, status_logistico, cod_cliente)
-cod_cliente não nulo referencia Clientes.cod_cliente
+## Como executar
 
-**Transacoes_Financeiras**
-(<u>num_transacao</u>, data_transacao, valor, forma_pagamento, situacao, cod_pedido)
-cod_pedido não nulo referencia Pedidos.cod_pedido
+No diretório pai do projeto:
 
-**Fornecedores**
-(<u>cod_fornecedor</u>, razao_social, cnpj, telefone, email, rua, numero, bairro, cidade, cep)
+```bash
+PYTHONPATH=/workspaces python -m mediap
+```
 
-**Contatos_Fornecedor** *(Entidade Fraca)*
-(<u>cod_fornecedor</u>, <u>nome_representante</u>, cargo, telefone, email)
-cod_fornecedor não nulo referencia Fornecedores.cod_fornecedor
+Ou, a partir da pasta do projeto:
 
-**Produtos**
-(<u>cod_produto</u>, nome, desc_tecnica, fabricante, categoria)
+```bash
+cd /workspaces/mediap
+python -m mediap
+```
 
-**Historico_Precos** *(Entidade Fraca)*
-(<u>cod_produto</u>, <u>data_vigencia</u>, valor_venda)
-cod_produto não nulo referencia Produtos.cod_produto
+> Se o módulo não for encontrado, use `PYTHONPATH` apontando para o diretório que contém a pasta `mediap`.
 
-**Depositos**
-(<u>cod_deposito</u>, nome_unidade, rua, numero, bairro, cidade, cep)
+## Comandos principais
 
-**Fornece** *(Relacionamento N:M)*
-(<u>cod_fornecedor</u>, <u>cod_produto</u>, preco_custo)
-cod_fornecedor não nulo referencia Fornecedores.cod_fornecedor
-cod_produto não nulo referencia Produtos.cod_produto
+```text
+library load library.json
+library list id
+playlist new Rock
+playlist add 1 2
+playlist show
+play
+next
+prev
+current
+enqueue 3
+queue show
+exit
+```
 
-**Contem** *(Relacionamento N:M)*
-(<u>cod_pedido</u>, <u>cod_produto</u>, qtd_adquirida, pr_unitario)
-cod_pedido não nulo referencia Pedidos.cod_pedido
-cod_produto não nulo referencia Produtos.cod_produto
+## Estrutura do projeto
 
-**Armazena** *(Relacionamento N:M com atributo identificador temporal)*
-(<u>cod_produto</u>, <u>cod_deposito</u>, <u>data_registro</u>, qtd_estoque)
-cod_produto não nulo referencia Produtos.cod_produto
-cod_deposito não nulo referencia Depositos.cod_deposito
+- `models.py`: representação da faixa `Track`
+- `doubly_linked_list.py`: estrutura de dados genérica
+- `playlist.py`: playlist com cursor e regras de navegação
+- `player.py`: regras de reprodução e biblioteca
+- `cli.py`: interface de linha de comando
+- `library.json`: base inicial de dados
+
+## Observação
+
+O projeto está em evolução e a camada de reprodução foi validada por testes automatizados, mas ainda é uma CLI funcional simples, sem interface gráfica nem persistência avançada de playlists.

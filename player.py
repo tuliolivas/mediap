@@ -38,11 +38,18 @@ class Player:
     def library_load(self, file_name: str) -> None:
         """Carrega a biblioteca de faixas a partir de um arquivo JSON.
 
-        Se `file_name` for um caminho relativo, ele é resolvido a partir do pacote
-        `mediap`, para que a execução com `python -m mediap` funcione corretamente
-        mesmo quando o processo for iniciado de uma pasta superior.
+        Tenta localizar o ficheiro em caminhos relevantes: diretório atual, diretório do
+        pacote e raiz do projeto, para funcionar tanto em execução local quanto em
+        `python -m mediap`.
         """
-        library_path = Path("mediap") / file_name
+        candidates = [
+            Path(file_name),
+            Path.cwd() / file_name,
+            Path(__file__).resolve().parent / file_name,
+            Path(__file__).resolve().parent.parent / file_name,
+        ]
+
+        library_path = next((path for path in candidates if path.exists()), candidates[2])
 
         try:
             with library_path.open("r", encoding="utf-8") as f:
@@ -137,58 +144,46 @@ class Player:
         return list(self.up_next)
 
     def up_next_current(self) -> Optional[Track]:
-        """ Retorna a faixa atualmente em execução na fila Up Next, se houver. """
-        if self.up_next and self.playlist_current_track is None:
-            return self.up_next[0]
-        return None
+        """Retorna a primeira faixa da fila Up Next, se houver."""
+        return self.up_next[0] if self.up_next else None
 
     # Controles de Reprodução
 
-    def player_current(self, ) -> Optional[Track]:
-        if self.playlist_current_track is not None:
-            track = self.playlist_current_track()
-        elif self.up_next_current is not None:
-            track = self.up_next_current()
-        else:
-            raise PlaylistError ("Nenhuma faixa disponível")
-        return track
-    
+    def player_current(self) -> Optional[Track]:
+        if self.playlist is not None and len(self.playlist) > 0:
+            return self.playlist.current()
+        if self.up_next:
+            return self.up_next[0]
+        return None
+
     def play(self) -> Track:
-        """Toca a faixa atualmente sob o cursor na playlist e registra no histórico."""
-        if self.playlist is not None:
-            track = self.playlist.current()
-            return track
-        else:
-            track = self.up_next_current()
-            if track is not None:
-                return track
-            else:
-                raise PlaylistError("Nenhuma faixa disponível para reprodução."\
-                                    "\nA playlist está vazia e a fila Up Next também está vazia.")
+        """Retorna a faixa atual da reprodução, priorizando a playlist."""
+        current = self.player_current()
+        if current is not None:
+            return current
+        raise PlaylistError(
+            "Nenhuma faixa disponível para reprodução."
+            "\nA playlist está vazia e a fila Up Next também está vazia."
+        )
 
     def play_next(self) -> Track:
         """
-        Avança a reprodução. Precedência:
-        1. Fila Up Next (descartada após tocar, não entra na playlist).
-        2. Cursor da Playlist (avança naturalmente).
+        Avança a reprodução. A prioridade é da fila Up Next sobre a playlist.
         """
-        if self.playlist_current_track is not None:
-            track = self.up_next.popleft()
-            return self.player_current(track)
-        elif self.up_next_current is not None:
-            track = self.playlist.play_next()
-            return self.player_current(track)
-        else:
-            raise PlaylistError("Nenhuma faixa disponível para reprodução."\
-                                "\nA playlist está vazia e a fila Up Next também está vazia.")
-        return track
+        if self.up_next:
+            return self.up_next.popleft()
+        if self.playlist is None or len(self.playlist) == 0:
+            raise PlaylistError(
+                "Nenhuma faixa disponível para reprodução."
+                "\nA playlist está vazia e a fila Up Next também está vazia."
+            )
+        return self.playlist.play_next()
 
     def play_prev(self) -> Track:
         """Retrocede a reprodução na playlist (Up Next não afeta prev)."""
-        track = self.playlist.play_prev()
-        self._current_track = track
-        self._record_history(track)
-        return track
+        if self.playlist is None or len(self.playlist) == 0:
+            raise PlaylistError("Nenhuma faixa disponível para reprodução. A playlist está vazia.")
+        return self.playlist.play_prev()
 
     # # ==========================================
     # # Gerenciamento de Filas e Histórico
