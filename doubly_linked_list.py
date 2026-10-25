@@ -1,9 +1,4 @@
-"""
-Módulo: doubly_linked_list.py
-Implementa uma lista duplamente encadeada genérica com nós sentinela, incluindo
-uma classe Playlist especializada para gerenciar a execução musical.
-Também define exceções de domínio para manipulação de playlists.
-"""
+"""Implementa a lista duplamente encadeada usada pela classe Playlist."""
 
 
 from __future__ import annotations

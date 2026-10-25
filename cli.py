@@ -32,13 +32,12 @@ Comandos Disponíveis:
 [Up Next]
   enqueue <id> ...          - Adiciona faixas à fila Up Next
   queue show                - Exibe a fila Up Next
-  upnext <id> ...           - Alias de enqueue
 
 [Reprodução]
-    play                      - Inicia ou retoma a faixa atual
+    play                      - Inicia ou retoma a faixa do cursor
   next                      - Avança para a próxima música (Up Next tem precedência)
   prev                      - Retrocede para a música anterior
-  current                   - Exibe a música atual em execução
+    current                   - Exibe a faixa indicada pelo cursor da playlist
 
 [Histórico e Shuffle]
     history                   - Exibe as últimas 30 execuções
@@ -50,7 +49,7 @@ Comandos Disponíveis:
 
 [Sistema]
   help                      - Exibe este menu de ajuda
-  exit / quit               - Encerra o programa
+    quit                      - Encerra o programa
 """
     print(help_text)
 
@@ -90,7 +89,7 @@ def run_cli() -> None:
         try:
             # Comandos de Sistema
 
-            if cmd in ("exit", "quit"):
+            if cmd == "quit":
                 print("A encerrar o reprodutor. Até logo!")
                 sys.exit(0)
 
@@ -157,12 +156,11 @@ def run_cli() -> None:
 
                 elif subcmd == "remove":
                     if len(parts) < 3 or not parts[2].isdigit():
-                        print("Erro: Especifique uma posição numérica válida \
-                              ex: playlist remove 2).")
+                        print("Erro: Informe uma posição numérica válida (ex: playlist remove 2).")
                         continue
                     pos = int(parts[2])
                     removed = player.playlist_remove_track_at(pos)
-                    print(f"Faixa removida da playlist: {removed}")
+                    print(f"Faixa removida da playlist: {format_track(removed)}")
 
                 elif subcmd == "show":
                     tracks = player.playlist_list_tracks()
@@ -185,7 +183,7 @@ def run_cli() -> None:
 
             # Comandos de Fila Up Next
 
-            elif cmd in ("enqueue", "upnext"):
+            elif cmd == "enqueue":
                 if len(parts) < 2:
                     print("Erro: Especifique o ID da faixa (ex: enqueue 1).")
                     continue
@@ -229,9 +227,9 @@ def run_cli() -> None:
             elif cmd == "current":
                 current = player.player_current()
                 if current is None:
-                    print("Nenhuma música a tocar no momento.")
+                    print("A playlist não tem faixa no cursor.")
                 else:
-                    print(f"Tocando agora: {format_track(current)}")
+                    print(f"Faixa no cursor da playlist: {format_track(current)}")
 
             elif cmd == "history":
                 entries = player.history_list()
@@ -241,7 +239,7 @@ def run_cli() -> None:
                 print("\n--- Histórico de Reprodução ---")
                 for index, (entry, track) in enumerate(entries, start=1):
                     played_at = datetime.fromisoformat(entry.timestamp).strftime("%H:%M:%S")
-                    print(f"{index}. {track.title} — {track.artist} [{played_at}]")
+                    print(f"{index}. {format_track(track)} [{played_at}]")
                 print()
 
             elif cmd == "smart-shuffle":
@@ -265,7 +263,5 @@ def run_cli() -> None:
             else:
                 print(f"Comando desconhecido: '{cmd}'. Digite 'help' para ver os comandos.")
 
-        except (PlaylistError, ValueError, KeyError, IndexError, FileNotFoundError) as e:
+        except (PlaylistError, ValueError, TypeError, KeyError, IndexError, OSError) as e:
             print(f"Erro: {e}")
-        except Exception as e:
-            print(f"Ocorreu um erro inesperado: {e}")

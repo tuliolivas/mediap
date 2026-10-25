@@ -2,7 +2,7 @@
 Módulo: player.py
 Implementa a classe Player, que gerencia a reprodução musical, incluindo:
 - Playlist principal (baseada em lista duplamente encadeada).
-- Fila de prioridade "Up Next" (deque).
+- Fila FIFO "Up Next" (deque).
 - Histórico de reprodução (deque com tamanho máximo).
 Também fornece funcionalidades de Smart Shuffle, persistência em JSON e controle de reprodução.
 """
@@ -32,7 +32,7 @@ class Player:
     Gerenciador de reprodução musical, incluindo:
     - Biblioteca de faixas (lista de objetos Track).
     - Playlist principal (Playlist[Track]).
-    - Fila de prioridade "Up Next" (deque[Track]).
+    - Fila FIFO "Up Next" (deque[Track]).
     - Histórico de reprodução (deque[HistoryEntry] com tamanho máximo).
     """
     def __init__(self) -> None:

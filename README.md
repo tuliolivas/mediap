@@ -30,6 +30,7 @@ playlist reset
 play
 next
 prev
+current
 enqueue <id> [id ...]
 queue show
 history
@@ -40,7 +41,7 @@ help
 quit
 ```
 
-As posições de remoção começam em 1. `next` consome a primeira faixa da fila Up Next sem alterar o cursor da playlist. `prev` sempre navega a playlist, então usa a posição preservada mesmo depois de tocar uma faixa da Up Next.
+As posições de remoção começam em 1. `current` mostra a faixa no cursor da playlist. `next` consome a primeira faixa da fila Up Next sem alterar o cursor da playlist; `prev` sempre navega a playlist, então usa a posição preservada mesmo depois de tocar uma faixa da Up Next.
 
 ## Exemplo de sessão
 
@@ -52,15 +53,15 @@ Playlist 'Favoritas' criada e definida como ativa.
 mediap> playlist add 3 4
 mediap> playlist show
 > 1. "Ghost of Perdition" — Opeth (10:29)
-	2. "The Drapery Falls" — Opeth (10:54)
+  2. "The Drapery Falls" — Opeth (10:54)
 mediap> play
 >>> Tocando: "Ghost of Perdition" — Opeth (10:29)
 mediap> enqueue 8
 mediap> next
 >>> Tocando: "Homage for Satan" — Deicide (3:59)
 mediap> history
-1. Homage for Satan — Deicide [12:00:01]
-2. Ghost of Perdition — Opeth [12:00:00]
+1. "Homage for Satan" — Deicide (3:59) [12:00:01]
+2. "Ghost of Perdition" — Opeth (10:29) [12:00:00]
 mediap> save estado.json
 Estado salvo em 'estado.json'.
 ```

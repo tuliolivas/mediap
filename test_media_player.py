@@ -1,12 +1,9 @@
-"""
-Módulo de testes unitários para a classe Playlist e suas funcionalidades.
-"""
+"""Testes da lista, playlist, player e interface de terminal."""
 
 import unittest
 import tempfile
 from io import StringIO
 from pathlib import Path
-from typing import Optional
 from unittest.mock import patch
 
 from .cli import format_duration, run_cli
@@ -14,18 +11,16 @@ from .player import HistoryEntry, Player
 from .playlist import Playlist, PlaylistEmptyError, PlaylistLimitError
 
 
-# Classe de Testes Unitários
-
 class TestPlaylistEstrutura(unittest.TestCase):
-    """ Testes unitários para a classe Playlist e suas funcionalidades. """
+    """Testa a lista duplamente encadeada e o cursor da playlist."""
 
     def setUp(self):
         """ 
         Método setUp é executado ANTES de cada teste.
         Obs.: Ele cria o cenário padrão para cada teste não interferir no outro.
         """
-        self.playlist_vazia: Playlist[Optional[str]] = Playlist("Vazia")
-        self.playlist_cheia: Playlist[Optional[str]] = Playlist("Cheia")
+        self.playlist_vazia: Playlist[str] = Playlist("Vazia")
+        self.playlist_cheia: Playlist[str] = Playlist("Cheia")
         self.playlist_cheia.add("Música A")
         self.playlist_cheia.add("Música B")
         self.playlist_cheia.add("Música C")
@@ -264,6 +259,9 @@ class TestCLI(unittest.TestCase):
                 "smart-shuffle 2",
                 "save " + str(state_path),
                 "load " + str(state_path),
+                "upnext 8",
+                "exit",
+                "library load arquivo-inexistente.json",
                 "unknown-command",
                 "quit",
             ]
@@ -275,7 +273,16 @@ class TestCLI(unittest.TestCase):
         session_output = output.getvalue()
         self.assertIn('>>> Tocando: "Ghost of Perdition" — Opeth (10:29)', session_output)
         self.assertIn('>>> Tocando: "Homage for Satan" — Deicide (3:59)', session_output)
+        self.assertIn(
+            'Faixa removida da playlist: "The Drapery Falls" — Opeth (10:54)',
+            session_output,
+        )
+        self.assertIn('Faixa no cursor da playlist: "Ghost of Perdition" — Opeth (10:29)', session_output)
         self.assertIn("Estado carregado de", session_output)
+        self.assertIn("Arquivo da biblioteca não encontrado", session_output)
+        self.assertIn("Comando desconhecido: 'upnext'", session_output)
+        self.assertIn("Comando desconhecido: 'exit'", session_output)
+        self.assertIn('1. "Homage for Satan" — Deicide (3:59) [', session_output)
         self.assertIn("Comando desconhecido", session_output)
 
 if __name__ == '__main__':
