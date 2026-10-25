@@ -150,6 +150,7 @@ class Player:
     # Controles de Reprodução
 
     def player_current(self) -> Optional[Track]:
+        """Mostar a faixa sob qual o cursor está posicionado"""
         if self.playlist is not None and len(self.playlist) > 0:
             return self.playlist.current()
         if self.up_next:
