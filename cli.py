@@ -5,8 +5,10 @@ Fornece comandos para gerenciar a biblioteca, playlists, fila de prioridade, his
 """
 
 import sys
+from datetime import datetime
 from typing import List
 
+from .models import Track
 from .playlist import PlaylistError
 from .player import Player
 
@@ -33,16 +35,36 @@ Comandos Disponíveis:
   upnext <id> ...           - Alias de enqueue
 
 [Reprodução]
-  play                      - Mostra a faixa atual da reprodução
+    play                      - Inicia ou retoma a faixa atual
   next                      - Avança para a próxima música (Up Next tem precedência)
   prev                      - Retrocede para a música anterior
   current                   - Exibe a música atual em execução
+
+[Histórico e Shuffle]
+    history                   - Exibe as últimas 30 execuções
+    smart-shuffle <n>         - Gera uma playlist ordenada por prioridade
+
+[Estado]
+    save <arquivo>            - Salva o estado completo em JSON
+    load <arquivo>            - Restaura o estado de um JSON
 
 [Sistema]
   help                      - Exibe este menu de ajuda
   exit / quit               - Encerra o programa
 """
     print(help_text)
+
+
+def format_duration(seconds: int) -> str:
+    """Formata a duração em minutos e segundos, sem depender de áudio real."""
+    minutes, remaining_seconds = divmod(seconds, 60)
+    return f"{minutes}:{remaining_seconds:02d}"
+
+
+def format_track(track: Track) -> str:
+    """Usa uma apresentação consistente nas listas e na reprodução."""
+    duration = format_duration(track.duration)
+    return f'"{track.title}" — {track.artist} ({duration})'
 
 
 def run_cli() -> None:
@@ -64,8 +86,6 @@ def run_cli() -> None:
 
         parts: List[str] = user_input.split()
         cmd: str = parts[0].lower()
-        # print(f"Comando recebido: {user_input}")
-        # print(f"Partes do comando: {parts}")
 
         try:
             # Comandos de Sistema
@@ -92,7 +112,7 @@ def run_cli() -> None:
                         print("Erro: Especifique o ficheiro (ex: library load data.json).")
                         continue
                     player.library_load(parts[2])
-                    print(f"Biblioteca '{parts[2]}' carregada com sucesso.")
+                    print(f"Biblioteca carregada: {len(player.library)} faixas.")
 
                 elif subcmd == "list":
                     if len(parts) < 3:
@@ -105,7 +125,7 @@ def run_cli() -> None:
                     else:
                         print(f"\n--- Biblioteca (Ordenada por: {by}) ---")
                         for track in tracks:
-                            print(f" {track}")
+                            print(f" [{track.id}] {format_track(track)} | rating {track.rating}")
                         print()
 
                 else:
@@ -147,12 +167,14 @@ def run_cli() -> None:
                 elif subcmd == "show":
                     tracks = player.playlist_list_tracks()
                     print(f"\n--- Playlist Ativa - {player.playlist_get_name()} ---")
-                    for idx, track in enumerate(tracks):
-                        if track == player.playlist_current_track():
-                            print(f" > [{idx + 1}] {track}")
-                        else:
-                            print(f"   [{idx + 1}] {track}")
-                        print()
+                    if not tracks:
+                        print("A playlist está vazia.\n")
+                        continue
+                    cursor_index = player.playlist.get_cursor_index()
+                    for idx, track in enumerate(tracks, start=1):
+                        marker = ">" if idx == cursor_index else " "
+                        print(f"{marker} {idx}. {format_track(track)}")
+                    print()
 
                 elif subcmd == "reset":
                     player.playlist_reset_cursor()
@@ -184,10 +206,8 @@ def run_cli() -> None:
                         print("A fila Up Next está vazia.")
                     else:
                         for idx, track in enumerate(tracks):
-                            if track == player.up_next_current():
-                                print(f" > [{idx + 1}] {track}")
-                            else:
-                                print(f"   [{idx + 1}] {track}")
+                            marker = ">" if idx == 0 else " "
+                            print(f"{marker} {idx + 1}. {format_track(track)}")
                         print()
                 else:
                     print(f"Erro: Subcomando '{subcmd}' de queue desconhecido.")
@@ -196,100 +216,51 @@ def run_cli() -> None:
 
             elif cmd == "play":
                 track = player.play()
-                print(f"Tocando: {track}")
+                print(f">>> Tocando: {format_track(track)}")
 
             elif cmd == "next":
                 track = player.play_next()
-                print(f"Avançou para: {track}")
+                print(f">>> Tocando: {format_track(track)}")
 
             elif cmd == "prev":
                 track = player.play_prev()
-                print(f"Retrocedeu para: {track}")
+                print(f">>> Tocando: {format_track(track)}")
 
             elif cmd == "current":
                 current = player.player_current()
                 if current is None:
                     print("Nenhuma música a tocar no momento.")
                 else:
-                    print(f"A tocar agora: {current}")
+                    print(f"Tocando agora: {format_track(current)}")
 
-            # # ==========================================
-            # # Fila Up Next
-            # # ==========================================
-            # elif cmd == "upnext":
-            #     if len(parts) < 2:
-            #         print("Erro: Especifique a ação (add, show).")
-            #         continue
+            elif cmd == "history":
+                entries = player.history_list()
+                if not entries:
+                    print("O histórico de reprodução está vazio.")
+                    continue
+                print("\n--- Histórico de Reprodução ---")
+                for index, (entry, track) in enumerate(entries, start=1):
+                    played_at = datetime.fromisoformat(entry.timestamp).strftime("%H:%M:%S")
+                    print(f"{index}. {track.title} — {track.artist} [{played_at}]")
+                print()
 
-            #     subcmd = parts[1].lower()
+            elif cmd == "smart-shuffle":
+                if len(parts) != 2 or not parts[1].isdigit():
+                    print("Erro: Forneça uma quantidade inteira (ex: smart-shuffle 10).")
+                    continue
+                playlist = player.smart_shuffle(int(parts[1]))
+                print(f"Playlist '{playlist.name}' criada e definida como ativa.")
 
-            #     if subcmd == "add":
-            #         if len(parts) < 3:
-            #             print("Erro: Especifique o ID (ex: upnext add track_01).")
-            #             continue
-            #         player.add_to_up_next(parts[2])
-            #         print(f"Faixa '{parts[2]}' adicionada à fila Up Next.")
-
-            #     elif subcmd == "show":
-            #         if not player.up_next_queue:
-            #             print("A fila Up Next está vazia.")
-            #         else:
-            #             print("\n--- Fila Up Next ---")
-            #             for i, track in enumerate(player.up_next_queue):
-            #                 print(f" [{i}] {track}")
-            #             print()
-
-            #     else:
-            #         print(f"Erro: Subcomando '{subcmd}' de upnext desconhecido.")
-
-            # # ==========================================
-            # # Histórico e Smart Shuffle
-            # # ==========================================
-            # elif cmd == "history":
-            #     if not player.history:
-            #         print("O histórico de reprodução está vazio.")
-            #     else:
-            #         print(f"\n--- Histórico de Reprodução (Últimas {player.history.maxlen}) ---")
-            #         # Inverte para exibir a mais recente no topo
-            #         for idx, entry in enumerate(reversed(player.history), start=1):
-            #             print(f" {idx:02d}. [{entry['timestamp']}] ID: {entry['id']} \
-            #                   - {entry['track_str']}")
-            #         print()
-
-            # elif cmd == "smart-shuffle":
-            #     if len(parts) != 2 or not parts[1].isdigit():
-            #         print("Erro: Forneça a quantidade (ex: smart-shuffle 10).")
-            #         continue
-            #     n = int(parts[1])
-            #     if n <= 0:
-            #         print("Erro: A quantidade deve ser superior a zero.")
-            #         continue
-
-            #     player.generate_smart_shuffle(n)
-            #     print(f"Playlist 'Smart Shuffle' gerada com {n} faixas e definida como ativa.")
-            #     print("Use 'playlist show' para visualizá-la ou 'play' para iniciar a reprodução.")
-
-            # # ==========================================
-            # # Comandos de Reprodução
-            # # ==========================================
-            # elif cmd == "current":
-            #     current = player.current_track()
-            #     if current:
-            #         print(f"A tocar agora: {current}")
-            #     else:
-            #         print("Nenhuma música a tocar no momento.")
-
-            # elif cmd == "play":
-            #     track = player.play()
-            #     print(f"A tocar: {track}")
-
-            # elif cmd == "next":
-            #     track = player.play_next()
-            #     print(f"Avançou para: {track}")
-
-            # elif cmd == "prev":
-            #     track = player.play_prev()
-            #     print(f"Retrocedeu para: {track}")
+            elif cmd in ("save", "load"):
+                if len(parts) != 2:
+                    print(f"Erro: Use {cmd} <arquivo>.")
+                    continue
+                if cmd == "save":
+                    player.save(parts[1])
+                    print(f"Estado salvo em '{parts[1]}'.")
+                else:
+                    player.load(parts[1])
+                    print(f"Estado carregado de '{parts[1]}'.")
 
             else:
                 print(f"Comando desconhecido: '{cmd}'. Digite 'help' para ver os comandos.")
@@ -298,194 +269,3 @@ def run_cli() -> None:
             print(f"Erro: {e}")
         except Exception as e:
             print(f"Ocorreu um erro inesperado: {e}")
-#   playlist reset               - Reinicializa o cursor na primeira música
-
-# Gerais:
-#   help                         - Exibe esta mensagem de ajuda
-#   quit                         - Encerra o reprodutor MediaP
-
-# """
-#     print(help_text)
-
-
-# def run_cli() -> None:
-#     """Executa a interface de linha de comando (CLI) para o MediaP."""
-#     print("MediaP - Reprodutor de Música")
-#     print("Digite 'help' para listar os comandos disponíveis.\n")
-
-#     player = Player()
-
-#     while True:
-#         try:
-#             line = input("mediap> ").strip()
-#             if not line:
-#                 continue
-
-#             parts = line.split()
-#             cmd = parts[0].lower()
-
-#             if cmd == "quit":
-#                 print("Encerrando o MediaP...")
-#                 break
-
-#             if cmd == "help":
-#                 print_help()
-#                 continue
-
-#             # Comandos diretos de reprodução
-#             if cmd == "play":
-#                 try:
-#                     track = player.play()
-#                     print(f"Tocando agora: {track}")
-#                 except LibraryError as err:
-#                     print(f"Erro: {err}")
-
-#             elif cmd in ("next", "play_next"):
-#                 try:
-#                     track = player.play_next()
-#                     if track:
-#                         print(f"Tocando agora: {track}")
-#                 except LibraryError as err:
-#                     print(f"Erro: {err}")
-
-#             elif cmd in ("prev", "play_prev"):
-#                 try:
-#                     track = player.play_prev()
-#                     if track:
-#                         print(f"Tocando agora: {track}")
-#                 except LibraryError as err:
-#                     print(f"Erro: {err}")
-
-#             # Comandos com Library
-#             elif cmd == "library":
-#                 if len(parts) == 1:
-#                     print("Erro: Esse comando precisa de um argumento. Use 'help'.")
-#                     continue
-
-#                 subcmd = parts[1].lower()
-
-#                 if subcmd == "load":
-#                     if len(parts) == 2:
-#                         print("Erro: Nome do arquivo JSON não fornecido.")
-#                         continue
-#                     filename = parts[2]
-#                     try:
-#                         player.load_library(filename)
-#                         print(f"Biblioteca carregada: {len(player.tracks)} faixas.")
-#                     except (FileNotFoundError, LibraryError, ValueError) as err:
-#                         print(f"Erro ao carregar biblioteca: {err}")
-
-#                 elif subcmd == "save":
-#                     if len(parts) == 2:
-#                         print("Erro: Nome do arquivo JSON não fornecido.")
-#                         continue
-#                     filename = parts[2]
-#                     try:
-#                         player.save_data(filename)
-#                         print(f"Biblioteca salva em '{filename}'.")
-#                     except LibraryError as err:
-#                         print(f"Erro ao salvar biblioteca: {err}")
-
-#                 elif subcmd == "list":
-#                     sort_by = parts[2] if len(parts) > 2 else "id"
-#                     try:
-#                         tracks = player.list_tracks(by=sort_by)
-#                      dict[str, Any]   if not tracks:
-#                             print("A biblioteca está vazia.")
-#                         else:
-#                             print(f"\nFaixas na biblioteca (ordenadas por {sort_by}):")
-#                             for track in tracks:
-#                                 print(f"  {track}")
-#                             print()
-#                     except LibraryError as err:
-#                         print(f"Erro: {err}")
-
-#                 else:
-#                     print(f"Subcomando 'library {subcmd}' inválido.")
-
-#             # Comandos com Playlist
-#             elif cmd == "playlist":
-#                 if len(parts) == 1:
-#                     print("Erro: Esse comando precisa de um argumento. Use 'help'.")
-#                     continue
-
-#                 subcmd = parts[1].lower()
-
-#                 if subcmd == "new":
-#                     if len(parts) == 2:
-#                         print("Erro: Nome da playlist não fornecido.")
-#                         continue
-#                     name = parts[2]
-#                     try:
-#                         player.create_playlist(name)
-#                         print(f"Playlist '{name}' criada e definida como atual.")
-#                     except (LibraryError, ValueError) as err:
-#                         print(f"Erro ao criar playlist: {err}")
-
-#                 elif subcmd == "add":
-#                     if len(parts) == 2:
-#                         print("Erro: ID da faixa não fornecido.")
-#                         continue
-#                     track_id = parts[2]
-#                     try:
-#                         player.add_to_playlist(track_id)
-#                         print(f"Faixa '{track_id}' adicionada à playlist.")
-#                     except (LibraryError, ValueError, KeyError) as err:
-#                         print(f"Erro ao adicionar faixa: {err}")
-
-#                 elif subcmd == "remove":
-#                     if len(parts) == 2 or not parts[2].isdigit():
-#                         print("Erro: Posição numérica não fornecida ou inválida.")
-#                         continue
-#                     pos = int(parts[2])
-#                     try:
-#                         removed = player.remove_from_playlist(pos)
-#                         print(f"Faixa '{removed}' removida da posição {pos}.")
-#                     except (LibraryError, ValueError, IndexError) as err:
-#                         print(f"Erro ao remover faixa: {err}")
-
-#                 elif subcmd == "show":
-#                     try:
-#                         player.show_playlist()
-#                     except (LibraryError, ValueError) as err:
-#                         print(f"Erro: {err}")
-
-#                 elif subcmd in ("next", "play_next"):
-#                     try:
-#                         track = player.play_next()
-#                         if track:
-#                             print(f" Tocando agora: {track}")
-#                     except LibraryError as err:
-#                         print(f"Erro: {err}")
-
-#                 elif subcmd in ("prev", "play_prev"):
-#                     try:
-#                         track = player.play_prev()
-#                         if track:
-#                             print(f"Tocando agora: {track}")
-#                     except LibraryError as err:
-#                         print(f"Erro: {err}")
-
-#                 elif subcmd == "current":
-#                     try:
-#                         track = player.current_track()
-#                         if track:
-#                             print(f"Faixa em execução: {track}")
-#                     except LibraryError as err:
-#                         print(f"Erro: {err}")
-
-#                 elif subcmd == "reset":
-#                     try:
-#                         player.reset_playlist_cursor()
-#                         print("Cursor reinicializado na primeira música da playlist.")
-#                     except LibraryError as err:
-#                         print(f"Erro: {err}")
-
-#                 else:
-#                     print(f"Subcomando 'playlist {subcmd}' inválido.")
-
-#             else:
-#                 print("Erro: comando inválido. Digite 'help' para ajuda.")
-
-#         except Exception as err:
-#             print(f"Erro no processamento do comando: {err}")

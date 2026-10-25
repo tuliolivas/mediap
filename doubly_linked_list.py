@@ -24,8 +24,6 @@ class DoublyLinkedList(Generic[T]):
         Nó interno da lista duplamente encadeada,
         contendo referências para o elemento, o nó anterior e o próximo nó.
         """
-        __slots__ = ("n_elem", "n_prev", "n_next")
-
         def __init__(
             self,
             elem: Any,
@@ -71,8 +69,6 @@ class DoublyLinkedList(Generic[T]):
         """
         Extrai o elemento de um nó, garantindo que não seja None.
         """
-        if node is self._header or node is self._trailer:
-            raise RuntimeError("Erro interno: Tentativa de leitura em nó sentinela.")
         if not node.is_valid():
             raise RuntimeError("Erro interno: Tentativa de leitura em nó inválido ou removido.")
         if node.n_elem is None:
@@ -101,25 +97,16 @@ class DoublyLinkedList(Generic[T]):
         """
         return self._length
 
-    def _insert_before(
-        self, elem: T, successor: DoublyLinkedList._Node
-    ) -> DoublyLinkedList._Node:
-        """
-        Insere um novo nó com o elemento `elem` antes do nó `successor`.
-        """
+    def _insert_last(self, elem: T) -> DoublyLinkedList._Node:
+        """Anexa um elemento no fim da lista e devolve seu nó."""
         if elem is None:
             raise ValueError("Erro interno: Elementos nulos (None) não são permitidos.")
-        predecessor = self._require_node(successor.n_prev)
-        novo = self._Node(elem, predecessor, successor)
-        predecessor.n_next, successor.n_prev = novo, novo
+        previous = self._require_node(self._trailer.n_prev)
+        new_node = self._Node(elem, previous, self._trailer)
+        previous.n_next = new_node
+        self._trailer.n_prev = new_node
         self._length += 1
-        return novo
-
-    def _insert_last(self, elem: T) -> DoublyLinkedList._Node:
-        """
-        Insere um novo nó com o elemento `elem` no final da lista.
-        """
-        return self._insert_before(elem, self._trailer)
+        return new_node
 
     def _find_node_by_index(self, pos: int) -> DoublyLinkedList._Node:
         """
@@ -131,10 +118,10 @@ class DoublyLinkedList(Generic[T]):
             current = self._require_node(self._header.n_next)
             for _ in range(pos - 1):
                 current = self._require_node(current.n_next)
-            return current
-        current = self._require_node(self._trailer.n_prev)
-        for _ in range(self._length - pos):
-            current = self._require_node(current.n_prev)
+        else:
+            current = self._require_node(self._trailer.n_prev)
+            for _ in range(self._length - pos):
+                current = self._require_node(current.n_prev)
         return current
 
     def _remove_node(self, node: DoublyLinkedList._Node) -> T:

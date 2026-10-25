@@ -17,7 +17,10 @@ T = TypeVar("T")
 
 class Playlist(DoublyLinkedList[T]):
     """
-    Gerenciador de execução musical baseado em lista duplamente encadeada.
+    Lista duplamente encadeada com cursor para a faixa atual.
+
+    O cursor guarda o nó, não a posição, para avançar e retroceder em O(1).
+    A playlist não é circular: tentar passar de uma ponta gera erro.
     """
 
     def __init__(self, name: str = "Minha Playlist") -> None:
@@ -36,40 +39,33 @@ class Playlist(DoublyLinkedList[T]):
         return self._cursor
 
     def add(self, track: T) -> None:
-        """
-        1. add(track): anexa uma nova faixa ao final da playlist.
-        """
+        """Anexa a faixa e torna-a atual apenas se a playlist estava vazia."""
         node = self._insert_last(track)
         if self._cursor is None:
             self._cursor = node
 
     def remove_at(self, pos: int) -> T:
         """
-        2. remove_at(pos): remove a faixa na posição `pos` (1-based) da playlist.
+        Remove a posição 1-based. Se remover a faixa atual, o cursor vai para a
+        próxima; se ela era a última, vai para a anterior; se era a única, zera.
         """
         node_to_remove = self._find_node_by_index(pos)
-        if self._length == 1:
-            self._cursor = None
-        else:
-            if self._cursor is node_to_remove:      # a faixa em execução for removida
-                next_node = self._require_node(node_to_remove.n_next)
-                prev_node = self._require_node(node_to_remove.n_prev)
-                if next_node is not self._trailer:
-                    self._cursor = next_node
-                elif prev_node is not self._header:
-                    self._cursor = prev_node
+        if self._cursor is node_to_remove:
+            next_node = self._require_node(node_to_remove.n_next)
+            if next_node is not self._trailer:
+                self._cursor = next_node
+            else:
+                previous_node = self._require_node(node_to_remove.n_prev)
+                self._cursor = None if previous_node is self._header else previous_node
         return self._remove_node(node_to_remove)
 
     def current(self) -> T:
-        """
-        3. current(): retorna a faixa atual em execução.
-        """
+        """Retorna a faixa do cursor ou gera erro se a playlist estiver vazia."""
         cursor = self._validate_cursor()
         return self._extract_element(cursor)
 
     def play_next(self) -> T:
-        """
-        4. play_next(): avança o cursor em O(1) e retorna a faixa."""
+        """Avança uma posição em O(1); não retorna ao início ao chegar ao fim."""
         cursor = self._validate_cursor()
         proximo = self._require_node(cursor.n_next)
         if proximo is self._trailer:
@@ -78,9 +74,7 @@ class Playlist(DoublyLinkedList[T]):
         return self._extract_element(self._cursor)
 
     def play_prev(self) -> T:
-        """
-        5. play_prev(): retrocede o cursor em O(1) e retorna a faixa.
-        """
+        """Retrocede uma posição em O(1); não passa do início da playlist."""
         cursor = self._validate_cursor()
         anterior = self._require_node(cursor.n_prev)
         if anterior is self._header:
@@ -89,17 +83,14 @@ class Playlist(DoublyLinkedList[T]):
         return self._extract_element(self._cursor)
 
     def reset_cursor(self) -> None:
-        """
-        6. reset_cursor(): reseta o cursor para a primeira faixa.
-        """
+        """Aponta o cursor para a primeira faixa, ou deixa-o vazio se necessário."""
         primeiro = self._require_node(self._header.n_next)
         if primeiro is self._trailer:
             self._cursor = None
         else:
             self._cursor = primeiro
 
-    # 7. __len__: herdado da DoublyLinkedList
-    # 8. __iter__: herdado da DoublyLinkedList
+    # __len__ e __iter__ são herdados da lista duplamente encadeada.
 
     # Suporte à Persistência JSON (Exigência do Save/Load)
     def get_cursor_index(self) -> Optional[int]:

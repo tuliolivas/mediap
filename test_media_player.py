@@ -3,9 +3,14 @@ Módulo de testes unitários para a classe Playlist e suas funcionalidades.
 """
 
 import unittest
+import tempfile
+from io import StringIO
+from pathlib import Path
 from typing import Optional
+from unittest.mock import patch
 
-from .player import Player
+from .cli import format_duration, run_cli
+from .player import HistoryEntry, Player
 from .playlist import Playlist, PlaylistEmptyError, PlaylistLimitError
 
 
@@ -155,11 +160,123 @@ class TestPlayerReproducao(unittest.TestCase):
     def test_up_next_tem_precedencia_sobre_playlist(self):
         self.player.up_next_enqueue([3])
         self.assertEqual(self.player.play_next().id, 3)
+        self.assertEqual(self.player.playlist_current_track().id, 1)
+        self.assertEqual(len(self.player.up_next), 0)
+        self.assertEqual(self.player.history[-1].track_id, 3)
 
     def test_current_retorna_faixa_ativa(self):
         self.assertEqual(self.player.player_current().id, 1)
         self.player.play_next()
         self.assertEqual(self.player.player_current().id, 2)
+
+    def test_historico_limita_30_e_descarta_os_mais_antigos(self):
+        played_ids = [(index % 3) + 1 for index in range(35)]
+        self.player.up_next_enqueue(played_ids)
+        for _ in played_ids:
+            self.player.play_next()
+
+        self.assertEqual(self.player.history.maxlen, 30)
+        self.assertEqual(len(self.player.history), 30)
+        self.assertEqual(
+            [entry.track_id for entry in self.player.history], played_ids[-30:]
+        )
+
+    def test_smart_shuffle_prioriza_rating_e_penaliza_recencia(self):
+        self.player.history.append(HistoryEntry(3, "2026-10-25T12:00:00+00:00"))
+        shuffled = self.player.smart_shuffle(len(self.player.library))
+        tracks = list(shuffled)
+        ratings = [track.rating for track in tracks]
+
+        self.assertEqual(ratings, sorted(ratings, reverse=True))
+        track_ids = [track.id for track in tracks]
+        self.assertGreater(track_ids.index(3), track_ids.index(4))
+        with self.assertRaises(ValueError):
+            self.player.smart_shuffle(len(self.player.library) + 1)
+
+    def test_save_load_restaura_estado_sem_carregar_biblioteca(self):
+        self.player.play_next()
+        self.player.up_next_enqueue([6, 4])
+        self.player.play_next()
+
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "state.json"
+            self.player.save(str(state_path))
+
+            restored = Player()
+            restored.load(str(state_path))
+
+        self.assertEqual(
+            [track.id for track in restored.playlist],
+            [track.id for track in self.player.playlist],
+        )
+        self.assertEqual(
+            restored.playlist.get_cursor_index(),
+            self.player.playlist.get_cursor_index(),
+        )
+        self.assertEqual(
+            [track.id for track in restored.up_next],
+            [track.id for track in self.player.up_next],
+        )
+        self.assertEqual(
+            [(entry.track_id, entry.timestamp) for entry in restored.history],
+            [(entry.track_id, entry.timestamp) for entry in self.player.history],
+        )
+        self.assertEqual(len(restored.library), len(self.player.library))
+
+    def test_arquivo_de_estado_relativo_fica_na_pasta_do_pacote(self):
+        package_dir = Path(__file__).resolve().parent
+        with tempfile.TemporaryDirectory(dir=package_dir) as temporary_dir:
+            relative_dir = Path(temporary_dir).name
+            state_name = f"{relative_dir}/state.json"
+            state_path = package_dir / state_name
+
+            self.player.save(state_name)
+            self.assertTrue(state_path.exists())
+
+            restored = Player()
+            restored.load(state_name)
+            self.assertEqual(len(restored.library), len(self.player.library))
+
+
+class TestCLI(unittest.TestCase):
+    """Testa uma sessão de ponta a ponta sem exigir entrada interativa."""
+
+    def test_formatacao_e_comandos_da_sessao(self):
+        self.assertEqual(format_duration(212), "3:32")
+
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = Path(directory) / "estado.json"
+            commands = [
+                "library load library.json",
+                "library list rating",
+                "playlist new Favoritas",
+                "playlist add 3 4",
+                "playlist show",
+                "playlist reset",
+                "playlist remove 2",
+                "play",
+                "enqueue 8",
+                "queue show",
+                "next",
+                "prev",
+                "current",
+                "history",
+                "smart-shuffle 2",
+                "save " + str(state_path),
+                "load " + str(state_path),
+                "unknown-command",
+                "quit",
+            ]
+            with patch("builtins.input", side_effect=commands):
+                with patch("sys.stdout", new_callable=StringIO) as output:
+                    with self.assertRaises(SystemExit):
+                        run_cli()
+
+        session_output = output.getvalue()
+        self.assertIn('>>> Tocando: "Ghost of Perdition" — Opeth (10:29)', session_output)
+        self.assertIn('>>> Tocando: "Homage for Satan" — Deicide (3:59)', session_output)
+        self.assertIn("Estado carregado de", session_output)
+        self.assertIn("Comando desconhecido", session_output)
 
 if __name__ == '__main__':
     unittest.main()

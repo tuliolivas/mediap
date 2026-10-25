@@ -8,15 +8,23 @@ Também fornece funcionalidades de Smart Shuffle, persistência em JSON e contro
 """
 
 import json
-from pathlib import Path
-# import time
 from collections import deque
-# from dataclasses import dataclass, asdict
-# from queue import PriorityQueue
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from queue import PriorityQueue
 from typing import List, Optional
 
-from .playlist import Playlist, PlaylistError#, PlaylistEmptyError, InvalidCursorError
 from .models import Track
+from .playlist import Playlist, PlaylistError
+
+
+@dataclass
+class HistoryEntry:
+    """Uma execução registrada com ID da faixa e horário de início."""
+
+    track_id: int
+    timestamp: str
 
 
 class Player:
@@ -31,25 +39,16 @@ class Player:
         self.library: List[Track] = []
         self.playlist: Optional[Playlist[Track]] = None
         self.up_next: deque[Track] = deque()
-        # self.history: deque[HistoryEntry] = deque(maxlen=20)
-        # self._current_track: Optional[Track] = None
+        self.history: deque[HistoryEntry] = deque(maxlen=30)
 
     # Controle da Biblioteca de Faixas
+    def _data_path(self, file_name: str) -> Path:
+        """Resolve nomes relativos a partir da pasta do pacote mediap."""
+        return Path(__file__).resolve().parent / file_name
+
     def library_load(self, file_name: str) -> None:
-        """Carrega a biblioteca de faixas a partir de um arquivo JSON.
-
-        Tenta localizar o ficheiro em caminhos relevantes: diretório atual, diretório do
-        pacote e raiz do projeto, para funcionar tanto em execução local quanto em
-        `python -m mediap`.
-        """
-        candidates = [
-            Path(file_name),
-            Path.cwd() / file_name,
-            Path(__file__).resolve().parent / file_name,
-            Path(__file__).resolve().parent.parent / file_name,
-        ]
-
-        library_path = next((path for path in candidates if path.exists()), candidates[2])
+        """Carrega a biblioteca JSON localizada na pasta do pacote."""
+        library_path = self._data_path(file_name)
 
         try:
             with library_path.open("r", encoding="utf-8") as f:
@@ -59,7 +58,22 @@ class Player:
         except json.JSONDecodeError as exc:
             raise ValueError(f"Arquivo JSON inválido: {file_name}") from exc
 
-        self.library = [Track.from_dict(track_data) for track_data in data]
+        tracks = [Track.from_dict(track_data) for track_data in data]
+        if len({track.id for track in tracks}) != len(tracks):
+            raise ValueError("A biblioteca contém IDs de faixa repetidos.")
+        self.library = tracks
+
+    def _track_by_id(self, track_id: int) -> Track:
+        """Busca pelo ID informado, sem presumir que IDs sejam posições."""
+        for track in self.library:
+            if track.id == track_id:
+                return track
+        raise ValueError(f"ID de faixa inválido: {track_id}.")
+
+    def _record_playback(self, track: Track) -> None:
+        """Guarda no máximo 30 execuções, com timestamp ISO legível."""
+        timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+        self.history.append(HistoryEntry(track.id, timestamp))
 
     def library_list_by(self, sort_by: str = "id") -> List[Track]:
         """Lista as faixas da biblioteca ordenadas por um critério específico."""
@@ -82,13 +96,10 @@ class Player:
 
     def playlist_add_track(self, track_id: list[int]) -> None:
         """ Adiciona uma faixa à playlist atual. """
-        for tid in track_id:
-            if tid <= 0 or tid > len(self.library):
-                raise ValueError(f"ID de faixa inválido: {tid}.")
         if self.playlist is None:
             raise PlaylistError("Nenhuma playlist ativa. Crie uma antes de adicionar faixas.")
-        for tid in track_id:
-            track = self.library[tid - 1]
+        tracks = [self._track_by_id(tid) for tid in track_id]
+        for track in tracks:
             self.playlist.add(track)
 
     def playlist_remove_track_at(self, pos: int) -> Track:
@@ -115,56 +126,34 @@ class Player:
             raise PlaylistError("Nenhuma playlist ativa. Crie uma antes de resetar o cursor.")
         self.playlist.reset_cursor()
 
-    def playlist_play_next(self) -> Track:
-        """ Avança para a próxima faixa na playlist e retorna a faixa atual. """
-        if self.playlist is None:
-            raise PlaylistError("Nenhuma playlist ativa. Crie uma antes de avançar faixas.")
-        return self.playlist.play_next()
-
-    def playlist_play_prev(self) -> Track:
-        """ Retrocede para a faixa anterior na playlist e retorna a faixa atual. """
-        if self.playlist is None:
-            raise PlaylistError("Nenhuma playlist ativa. Crie uma antes de retroceder faixas.")
-        return self.playlist.play_prev()
-
     # Gerenciamento da Up Next Queue
 
     def up_next_enqueue(self, track_id: list[int]) -> None:
         """ Adiciona faixa(s) à fila Up Next. """
-        for tid in track_id:
-            if tid <= 0 or tid > len(self.library):
-                raise ValueError(f"ID de faixa inválido: {tid}.")
-
-        for tid in track_id:
-            track = self.library[tid - 1]
-            self.up_next.append(track)
+        tracks = [self._track_by_id(tid) for tid in track_id]
+        self.up_next.extend(tracks)
 
     def up_next_list(self) -> List[Track]:
         """ Retorna uma lista de todas as faixas na fila Up Next. """
         return list(self.up_next)
 
-    def up_next_current(self) -> Optional[Track]:
-        """Retorna a primeira faixa da fila Up Next, se houver."""
-        return self.up_next[0] if self.up_next else None
-
     # Controles de Reprodução
 
     def player_current(self) -> Optional[Track]:
-        """Mostar a faixa sob qual o cursor está posicionado"""
+        """Retorna a faixa indicada pelo cursor da playlist, se houver."""
         if self.playlist is not None and len(self.playlist) > 0:
             return self.playlist.current()
-        if self.up_next:
-            return self.up_next[0]
         return None
 
     def play(self) -> Track:
-        """Retorna a faixa atual da reprodução, priorizando a playlist."""
+        """Inicia ou retoma a faixa do cursor e registra a execução."""
         current = self.player_current()
         if current is not None:
+            self._record_playback(current)
             return current
         raise PlaylistError(
             "Nenhuma faixa disponível para reprodução."
-            "\nA playlist está vazia e a fila Up Next também está vazia."
+            "\nA playlist está vazia."
         )
 
     def play_next(self) -> Track:
@@ -172,119 +161,124 @@ class Player:
         Avança a reprodução. A prioridade é da fila Up Next sobre a playlist.
         """
         if self.up_next:
-            return self.up_next.popleft()
-        if self.playlist is None or len(self.playlist) == 0:
+            track = self.up_next.popleft()
+        elif self.playlist is not None and len(self.playlist) > 0:
+            track = self.playlist.play_next()
+        else:
             raise PlaylistError(
                 "Nenhuma faixa disponível para reprodução."
                 "\nA playlist está vazia e a fila Up Next também está vazia."
             )
-        return self.playlist.play_next()
+        self._record_playback(track)
+        return track
 
     def play_prev(self) -> Track:
         """Retrocede a reprodução na playlist (Up Next não afeta prev)."""
         if self.playlist is None or len(self.playlist) == 0:
             raise PlaylistError("Nenhuma faixa disponível para reprodução. A playlist está vazia.")
-        return self.playlist.play_prev()
+        track = self.playlist.play_prev()
+        self._record_playback(track)
+        return track
 
-    # # ==========================================
-    # # Gerenciamento de Filas e Histórico
-    # # ==========================================
+    def smart_shuffle(self, count: int) -> Playlist[Track]:
+        """Cria uma playlist priorizando rating e penalizando execuções recentes.
 
-    # def add_to_playlist(self, track: Track) -> None:
-    #     self.playlist.add(track)
+        O score é -10 vezes o rating, mais uma penalidade de 5 a 1 para
+        faixas nas cinco posições mais recentes do histórico. A fila recebe
+        (score, ID) para desempatar de modo previsível sem comparar objetos.
+        Não há repetição; pedir mais faixas do que a biblioteca possui é erro.
+        """
+        if count <= 0:
+            raise ValueError("A quantidade deve ser maior que zero.")
+        if count > len(self.library):
+            raise ValueError(
+                f"Quantidade solicitada ({count}) maior que a biblioteca "
+                f"({len(self.library)} faixas)."
+            )
 
-    # def enqueue_up_next(self, track: Track) -> None:
-    #     """Adiciona uma música à fila de prioridade Up Next."""
-    #     self.up_next.append(track)
+        recent_positions: dict[int, int] = {}
+        for position, entry in enumerate(reversed(self.history)):
+            if entry.track_id not in recent_positions:
+                recent_positions[entry.track_id] = position
 
-    # def _record_history(self, track: Track) -> None:
-    #     """Registra a execução no histórico (FIFO gerido pelo maxlen do deque)."""
-    #     entry = HistoryEntry(track_id=track.id, timestamp=time.time())
-    #     self.history.append(entry)
+        priorities: PriorityQueue[tuple[int, int, Track]] = PriorityQueue()
+        for track in self.library:
+            position = recent_positions.get(track.id)
+            penalty = 5 - position if position is not None and position < 5 else 0
+            score = -10 * track.rating + penalty
+            priorities.put((score, track.id, track))
 
-    # # ==========================================
-    # # Smart Shuffle
-    # # ==========================================
+        new_playlist = Playlist(f"Smart Shuffle ({count} faixas)")
+        for _ in range(count):
+            _, _, track = priorities.get()
+            new_playlist.add(track)
+        self.playlist = new_playlist
+        return new_playlist
 
-    # def smart_shuffle(self, n: int, library: List[Track]) -> Playlist[Track]:
-    #     """
-    #     Gera uma nova playlist baseada em prioridade (Rating alto, Baixa Recência).
-    #     """
-    #     pq: PriorityQueue[tuple[float, str, Track]] = PriorityQueue()
+    def history_list(self) -> list[tuple[HistoryEntry, Track]]:
+        """Retorna as execuções mais recentes primeiro, junto às faixas."""
+        tracks_by_id = {track.id: track for track in self.library}
+        return [
+            (entry, tracks_by_id[entry.track_id])
+            for entry in reversed(self.history)
+        ]
 
-    #     for track in library:
-    #         priority = self._calculate_priority(track)
-    #         # A tupla usa (prioridade, id, objeto) para evitar empates quebrem a comparação
-    #         pq.put((priority, track.id, track))
+    def save(self, file_name: str) -> None:
+        """Salva biblioteca e estado do player em JSON autossuficiente."""
+        playlist_data = None
+        if self.playlist is not None:
+            playlist_data = {
+                "name": self.playlist.name,
+                "track_ids": [track.id for track in self.playlist],
+                "cursor_index": self.playlist.get_cursor_index(),
+            }
 
-    #     nova_playlist = Playlist(f"Smart Shuffle ({n} faixas)")
+        data = {
+            "library": [track.to_dict() for track in self.library],
+            "playlist": playlist_data,
+            "up_next": [track.id for track in self.up_next],
+            "history": [
+                {"track_id": entry.track_id, "timestamp": entry.timestamp}
+                for entry in self.history
+            ],
+        }
+        self._data_path(file_name).write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
-    #     count = 0
-    #     while not pq.empty() and count < n:
-    #         _, _, track = pq.get()
-    #         nova_playlist.add(track)
-    #         count += 1
+    def load(self, file_name: str) -> None:
+        """Restaura o player; os dados da biblioteca viajam no próprio arquivo."""
+        try:
+            data = json.loads(self._data_path(file_name).read_text(encoding="utf-8"))
+            library = [Track.from_dict(item) for item in data["library"]]
+            tracks_by_id = {track.id: track for track in library}
+            if len(tracks_by_id) != len(library):
+                raise ValueError("O estado contém IDs de faixa repetidos.")
 
-    #     self.playlist = nova_playlist
-    #     return self.playlist
+            playlist_data = data["playlist"]
+            playlist = None
+            if playlist_data is not None:
+                playlist = Playlist(playlist_data["name"])
+                for track_id in playlist_data["track_ids"]:
+                    playlist.add(tracks_by_id[track_id])
+                playlist.set_cursor_by_index(playlist_data["cursor_index"])
 
-    # def _calculate_priority(self, track: Track) -> float:
-    #     """
-    #     Fórmula de prioridade: Menores valores saem primeiro na PriorityQueue.
-    #     - Rating maior abaixa o valor (maior prioridade).
-    #     - Recência no histórico aumenta o valor (penalidade / menor prioridade).
-    #     """
-    #     # Ex: Rating 5.0 -> Score -500
-    #     rating_score = - (track.rating * 100)
+            up_next = deque(tracks_by_id[track_id] for track_id in data["up_next"])
+            history = deque(
+                (
+                    HistoryEntry(item["track_id"], item["timestamp"])
+                    for item in data["history"]
+                ),
+                maxlen=30,
+            )
+            if any(entry.track_id not in tracks_by_id for entry in history):
+                raise ValueError("O histórico referencia uma faixa inexistente.")
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Arquivo JSON inválido: {file_name}") from exc
+        except (KeyError, IndexError, TypeError, ValueError, PlaylistError) as exc:
+            raise ValueError(f"Estado inválido em '{file_name}': {exc}") from exc
 
-    #     recency_penalty = 0
-    #     # Inspeciona o histórico do mais recente (direita) para o mais antigo (esquerda)
-    #     history_list = list(self.history)
-    #     for i, entry in enumerate(reversed(history_list)):
-    #         if entry.track_id == track.id:
-    #             # Se estiver no histórico, aplica penalidade baseada em quão recente foi.
-    #             # Se maxlen é 20 e é a última tocada (i=0), penalidade é 20 * 10 = +200
-    #             recency_penalty = (len(history_list) - i) * 10
-    #             break
-
-    #     return rating_score + recency_penalty
-
-    # # ==========================================
-    # # Persistência JSON
-    # # ==========================================
-
-    # def save(self, filepath: str) -> None:
-    #     """Salva o estado integral do Player num arquivo JSON."""
-    #     data = {
-    #         "playlist_name": self.playlist.name,
-    #         "playlist_tracks": [asdict(t) for t in self.playlist],
-    #         "cursor_index": self.playlist.get_cursor_index(),
-    #         "up_next": [asdict(t) for t in self.up_next],
-    #         "history": [asdict(h) for h in self.history]
-    #     }
-    #     with open(filepath, "w", encoding="utf-8") as f:
-    #         json.dump(data, f, indent=4)
-
-    # def load(self, filepath: str) -> None:
-    #     """Restaura o estado integral do Player a partir do arquivo JSON."""
-    #     with open(filepath, "r", encoding="utf-8") as f:
-    #         data = json.load(f)
-
-    #     # Restaura Playlist
-    #     self.playlist = Playlist(data["playlist_name"])
-    #     for track_data in data["playlist_tracks"]:
-    #         self.playlist.add(Track.from_dict(track_data))
-
-    #     # Restaura Cursor
-    #     self.playlist.set_cursor_by_index(data["cursor_index"])
-    #     self._current_track=self.playlist.current() if data["cursor_index"] is not None else None
-
-    #     # Restaura Up Next
-    #     self.up_next.clear()
-    #     for track_data in data["up_next"]:
-    #         self.up_next.append(Track.from_dict(track_data))
-
-    #     # Restaura Histórico
-    #     self.history.clear()
-    #     for hist_data in data["history"]:
-    #         self.history.append(HistoryEntry(**hist_data))
+        self.library = library
+        self.playlist = playlist
+        self.up_next = up_next
+        self.history = history
